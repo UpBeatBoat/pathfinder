@@ -5,16 +5,17 @@
 
 char* CMyGame::m_tileLayout[12] =
 {
+	// each tile is 64x64 pixels
 	"XXXXXXXXXXXXXXXXXXXX",
-	"X     XX        XX X",
-	"X         XXXX     X",
-	"X     XX  XXXX  XX X",
-	"XXXXX XX        XX X",
-	"XXXXX XXXXXXXXX XX X",
-	"X     XXXXXXXXX XX X",
-	"X  XXXXX     XX    X",
-	"X XXXXXX XX  XXXXX X",
-	"X XXX    XX  XXXXX X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
+	"X                  X",
 	"X                  X",
 	"XXXXXXXXXXXXXXXXXXXX",
 };
@@ -26,6 +27,75 @@ CMyGame::CMyGame(void) :
 	m_npc.LoadAnimation("Spider64.png", "walk", CSprite::Sheet(4, 2).Col(0).From(0).To(1));
 	m_npc.LoadAnimation("Spider64.png", "idle", CSprite::Sheet(4, 2).Col(2).From(0).To(1));
 	m_npc.SetAnimation("idle", 4);
+
+	// create graph structure - nodes 
+	// using a loop, to create a node in the middle of every tile
+	int tileSize = 64;	// each tile on the map is 64x64 pixels
+	float posX;	// x coord of the middle of the tile
+	float posY;	// y coord of the middle of the tile
+	bool enabled;
+
+	for (int y = 0; y < 12; y++)	// loop through every tile, the tile map is 12 tiles tall
+	{
+		for (int x = 0; x < 20; x++)	// loop through every tile, the tile map is 20 tiles wide
+		{
+			posX = x * tileSize + tileSize / 2;	// x * tile size finds the left of that tile, adding half the tile size gives the middle
+			posY = y * tileSize + tileSize / 2;	// y * tile size finds the bottom of that tile, adding half the tile size gives the middle
+
+			if (m_tileLayout[y][x] == 'X')	// if there is a wall on that tile, set enabled to false, so the node won't be used for pathfinding
+			{
+				enabled = false;
+			}
+			else
+			{
+				enabled = true;	// if there is no wall there set the node to enabled so that it is used during pathfinding
+			}
+
+			// adding node to graph
+			m_graph.push_back(NODE{CVector(posX, posY), {}, enabled});
+		}
+	}
+
+	// create graph structure - connections 
+	// using a loop to automatically generate connections
+	int index;	// the index for the node we're making connections for
+	int r;	// index for the node to the right of our current node we're looking at
+	int a;	// index for the node above our current node we're looking at
+	float dist;	// distance between nodes, used for the 
+
+	for (int y = 0; y < 12; y++)	// loop through every tile, the tile map is 12 tiles tall
+	{
+		for (int x = 0; x < 20; x++)	// loop through every tile, the tile map is 20 tiles wide
+		{
+			// Since the example game we did in class creates a two way connection so the NPC can travel both ways across connections
+			// I only need to create connections for 2 sides of each node, since if I did all sides, I would create multiple of the same connection
+			// In this case I choose to do connections for the right and above each node
+			// find node index
+			index = y * 20 + x;	// because my tiles go from left to right, starting in the bottom left, each row going up is 20 more than the row below it
+
+			// right connection
+			if (x < 19)	// only connect right if x < 19, because there are 20 tiles horizontally, which would be from 0-19 and there is no node to the right of the very right tiles
+			{
+				r = index + 1;	// index for the node right of this node
+				dist = Distance(m_graph[index].pos, m_graph[r].pos);	// can find the position of each node with their index in the graph we made and the pos variable each node has thanks to the NODE structure
+
+				// creating connections both ways
+				m_graph[index].conlist.push_back(CONNECTION{r, dist});	// create connection from the node we're looking at to the node to it's right
+				m_graph[r].conlist.push_back(CONNECTION{index, dist});	// node in the opposite direction of the line above (node to the right of this one, connecting to this one)
+			}
+
+			// above connection
+			if (y < 11)	// only connect right if y < 11, because there are 12 tiles vertically, which would be from 0-11 and there is no node above of the very top tiles
+			{
+				a = index + 20;	// index for the node above of this node
+				dist = Distance(m_graph[index].pos, m_graph[a].pos);	// can find the position of each node with their index in the graph we made and the pos variable each node has thanks to the NODE structure
+
+				// creating connections both ways
+				m_graph[index].conlist.push_back(CONNECTION{ a, dist });	// create connection from the node we're looking at to the node above it
+				m_graph[a].conlist.push_back(CONNECTION{ index, dist });	// node in the opposite direction of the line above (node to the right of this one, connecting to this one)
+			}
+		}
+	}
 }
 
 CMyGame::~CMyGame(void)
@@ -69,9 +139,9 @@ void CMyGame::OnUpdate()
 
 void CMyGame::OnDraw(CGraphics* g)
 {
-	//for (NODE n : m_graph)
-	//	for (CONNECTION c : n.conlist)
-	//		g->DrawLine(n.pos, m_graph[c.nEnd].pos, CColor::Black());
+	for (NODE n : m_graph)
+		for (CONNECTION c : n.conlist)
+			g->DrawLine(n.pos, m_graph[c.nEnd].pos, CColor::Black());
 	m_nodes.for_each(&CSprite::Draw, g);
 	m_tiles.for_each(&CSprite::Draw, g);
 	m_pumpkin.Draw(g);
@@ -86,14 +156,14 @@ void CMyGame::OnInitialize()
 {
 	// Create Nodes
 
-	//int i = 0;
-	//for (NODE n : m_graph)
-	//{
-	//	stringstream s;
-	//	s << i++;
-	//	m_nodes.push_back(new CSpriteOval(n.pos, 12, CColor::White(), CColor::Black(), 0));
-	//	m_nodes.push_back(new CSpriteText(n.pos, "arial.ttf", 14, s.str(), CColor::Black(), 0));
-	//}
+	int i = 0;
+	for (NODE n : m_graph)
+	{
+		stringstream s;
+		s << i++;
+		m_nodes.push_back(new CSpriteOval(n.pos, 12, CColor::White(), CColor::Black(), 0));
+		m_nodes.push_back(new CSpriteText(n.pos, "arial.ttf", 14, s.str(), CColor::Black(), 0));
+	}
 
 	// Create Tiles
 	for (int y = 0; y < 12; y++)

@@ -1,5 +1,18 @@
 #pragma once
 
+struct CONNECTION
+{
+	int nEnd;			  // index of the destination node 
+	float cost;		  // cost of the transition 
+};
+
+struct NODE
+{
+	CVector pos;		  // 2D position of the node 
+	list<CONNECTION> conlist;	  // list of connections 
+	bool enabled;
+};
+
 class CMyGame : public CGame
 {
 	CSprite m_npc;					// Spider
@@ -8,6 +21,7 @@ class CMyGame : public CGame
 	CSpriteList m_nodes;			// Nodes
 	static char *m_tileLayout[12];	// Tiles layout
 
+	vector<NODE> m_graph;
 	list<CVector> m_waypoints;
 
 public:
