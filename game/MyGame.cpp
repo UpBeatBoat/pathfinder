@@ -3,19 +3,27 @@
 
 #pragma warning (disable: 4244)
 
+// NOTES FOR FUTURE ME
+// Work on the path finding stuff next time, Just completed stub code for PathFind
+// Work on Daijkstra's
+// Make the nodes only check enabled ones
+// Make walls moveable
+// Make moved walls enable and disable appropriate nodes
+
+
 char* CMyGame::m_tileLayout[12] =
 {
 	// each tile is 64x64 pixels
 	"XXXXXXXXXXXXXXXXXXXX",
 	"X                  X",
+	"X      XX          X",
 	"X                  X",
 	"X                  X",
 	"X                  X",
 	"X                  X",
 	"X                  X",
-	"X                  X",
-	"X                  X",
-	"X                  X",
+	"X           X      X",
+	"X           X      X",
 	"X                  X",
 	"XXXXXXXXXXXXXXXXXXXX",
 };
@@ -187,6 +195,15 @@ void CMyGame::OnInitialize()
 		}
 }
 
+// pathfinding code, INCOMPLETE, CONTINUE THIS NEXT TIME
+bool PathFind(vector<NODE>& graph, int nStart, int nGoal, vector<int>& path)
+{
+	path.push_back(nStart);
+	path.push_back(nGoal);
+	return true;
+}
+
+
 // called when a new game is requested (e.g. when F2 pressed)
 // use this function to prepare a menu or a welcome screen
 void CMyGame::OnDisplayMenu()
@@ -244,18 +261,40 @@ void CMyGame::OnLButtonDown(Uint16 x, Uint16 y)
 {
 	CVector v(x, y);	// destination
 
+	// check if the move is legal
+	if (m_tileLayout[y / 64][x / 64] != ' ')
+		return;	// cannot go into wall
+
 	// Place the Pumpkin at the clicked position
 	m_pumpkin.SetPosition(v);
 
-	// check if the move is legal
-
 	// find the first node: the closest to the NPC
+	vector<NODE>::iterator iFirst = min_element(m_graph.begin(), m_graph.end(), [this](NODE& n1, NODE& n2)->bool {
+		return Distance(n1.pos, m_npc.GetPos()) < Distance(n2.pos, m_npc.GetPos());
+		});
+	int nFirst = iFirst - m_graph.begin();
 
 	// find the last node: the closest to the destination
+	vector<NODE>::iterator iLast = min_element(m_graph.begin(), m_graph.end(), [v](NODE& n1, NODE& n2)->bool {
+		return Distance(n1.pos, v) < Distance(n2.pos, v);
+		});
+	int nLast = iLast - m_graph.begin();
 
 	// remove the current way points and reset the NPC
+	if (!m_waypoints.empty())
+	{
+		m_waypoints.clear();
+		m_npc.SetVelocity(0, 0);
+	}
 
 	// call the path finding algorithm to complete the waypoints
+	vector<int> path;
+	if (PathFind(m_graph, nFirst, nLast, path))
+	{
+		for (int i : path)
+			m_waypoints.push_back(m_graph[i].pos);
+		m_waypoints.push_back(v);
+	}
 }
 
 void CMyGame::OnLButtonUp(Uint16 x,Uint16 y)
